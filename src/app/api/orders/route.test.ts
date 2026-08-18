@@ -1,5 +1,29 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { NextRequest } from "next/server";
+
+const { supabaseMockState } = vi.hoisted(() => {
+    return { supabaseMockState: { rows: new Map<string, Record<string, unknown>>() } };
+});
+
+vi.mock("@/lib/supabase-admin", () => ({
+    supabase: {
+        from: (_table: string) => ({
+            insert: async (row: Record<string, unknown>) => {
+                supabaseMockState.rows.set(row.id as string, row);
+                return { error: null };
+            },
+            select: () => ({
+                eq: (_column: string, value: string) => ({
+                    maybeSingle: async () => {
+                        const row = supabaseMockState.rows.get(value);
+                        return { data: row ?? null, error: null };
+                    },
+                }),
+            }),
+        }),
+    },
+}));
+
 import { POST } from "./route";
 
 function makeRequest(body: unknown, raw?: string) {
@@ -24,6 +48,10 @@ function validPayload(overrides: Record<string, unknown> = {}) {
         ...overrides,
     };
 }
+
+beforeEach(() => {
+    supabaseMockState.rows.clear();
+});
 
 describe("POST /api/orders", () => {
     it("creates an order and returns 201 with an id and status", async () => {

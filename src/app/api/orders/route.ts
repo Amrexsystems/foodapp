@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: validationError }, { status: 400 });
     }
 
-    const order = createOrder({
+    const order = await createOrder({
         items: body.items,
         customer: {
             name: body.customer.name.trim(),

@@ -1,7 +1,35 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { NextRequest } from "next/server";
+
+const { supabaseMockState } = vi.hoisted(() => {
+    return { supabaseMockState: { rows: new Map<string, Record<string, unknown>>() } };
+});
+
+vi.mock("@/lib/supabase-admin", () => ({
+    supabase: {
+        from: (_table: string) => ({
+            insert: async (row: Record<string, unknown>) => {
+                supabaseMockState.rows.set(row.id as string, row);
+                return { error: null };
+            },
+            select: () => ({
+                eq: (_column: string, value: string) => ({
+                    maybeSingle: async () => {
+                        const row = supabaseMockState.rows.get(value);
+                        return { data: row ?? null, error: null };
+                    },
+                }),
+            }),
+        }),
+    },
+}));
+
 import { POST as createOrderRoute } from "../route";
 import { GET } from "./route";
+
+beforeEach(() => {
+    supabaseMockState.rows.clear();
+});
 
 function makeCreateRequest(overrides: Record<string, unknown> = {}) {
     const payload = {
@@ -87,7 +115,6 @@ describe("GET /api/orders/[id]", () => {
         });
         const data = await response.json();
 
-        // Freshly created, so still within the "Order Received" window.
         expect(data.status).toBe("Order Received");
     });
 
@@ -99,8 +126,12 @@ describe("GET /api/orders/[id]", () => {
             customer: { name: "Brian Otieno", address: "45 Ngong Road", phone: "0798765432" },
         });
 
-        const firstResponse = await GET(makeGetRequest(first.id), { params: Promise.resolve({ id: first.id }) });
-        const secondResponse = await GET(makeGetRequest(second.id), { params: Promise.resolve({ id: second.id }) });
+        const firstResponse = await GET(makeGetRequest(first.id), {
+            params: Promise.resolve({ id: first.id }),
+        });
+        const secondResponse = await GET(makeGetRequest(second.id), {
+            params: Promise.resolve({ id: second.id }),
+        });
 
         const firstData = await firstResponse.json();
         const secondData = await secondResponse.json();
