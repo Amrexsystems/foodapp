@@ -1,14 +1,7 @@
 import type { Metadata } from "next";
-import { Fraunces, Inter, IBM_Plex_Mono } from "next/font/google";
+import { Inter, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { CartProvider } from "@/lib/cart-context";
-
-const fraunces = Fraunces({
-  subsets: ["latin"],
-  variable: "--font-display",
-  weight: ["400", "500", "600"],
-  style: ["normal", "italic"],
-});
 
 const inter = Inter({
   subsets: ["latin"],
@@ -34,7 +27,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="scroll-smooth">
       <body
-        className={`${fraunces.variable} ${inter.variable} ${plexMono.variable} antialiased`}
+        className={`${inter.variable} ${plexMono.variable} antialiased`}
       >
         <CartProvider>{children}</CartProvider>
       </body>
