@@ -1,36 +1,46 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Ember Kitchen — Order Management
 
-## Getting Started
+An Order Management feature for a food delivery app for RaftLabs: browse a menu, build a cart, check out with delivery details, and track an order's status in real time.
 
-First, run the development server:
+Built as a senior full-stack developer assessment.
+
+## Features
+
+- **Menu display** — food items with name, description, price, and image, filterable by category
+- **Order placement** — add items to a cart, adjust quantities, and check out with name, address, and phone
+- **Order status tracking** — a live status page (Order Received → Preparing → Out for Delivery → Delivered) that polls the API and advances automatically based on elapsed time, simulating real-time kitchen updates
+- **REST API** — endpoints for creating and retrieving orders, with input validation
+- **Tests** — unit and integration tests covering the order store, both API routes, cart logic, and the checkout form
+
+## How order status updates work
+
+Orders are stored in memory with a `createdAt` timestamp. `computeStatus()` derives the current status from elapsed time since creation (15s → Preparing, 45s → Out for Delivery, 90s → Delivered). The order status page polls `GET /api/orders/[id]` every 5 seconds, so the status advances automatically without a websocket or manual update.
+
+## Notes on scope
+
+- Orders are stored in memory and reset when the server restarts — acceptable for this assessment's scope, and explicitly allowed by the brief.
+- No authentication or multi-restaurant support — the feature is scoped to order management for a single menu, per the assessment brief.
+
+## Tech stack
+
+- [Next.js](https://nextjs.org) (App Router) + TypeScript
+- Tailwind CSS
+- [Vitest](https://vitest.dev) + React Testing Library
+- In-memory data store (no external database required)
+
+## Getting started
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Running tests
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm test
+```
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Project structure
