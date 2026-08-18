@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { useCart } from "@/lib/cart-context";
 
 type OrderItem = {
     id: string;
@@ -33,7 +34,7 @@ const STATUS_STEPS: OrderStatus[] = [
     "Delivered",
 ];
 
-const POLL_INTERVAL_MS = 5000;
+const POLL_INTERVAL_MS = 3000;
 
 export default function OrderStatusPage() {
     const params = useParams<{ id: string }>();
@@ -42,6 +43,12 @@ export default function OrderStatusPage() {
     const [order, setOrder] = useState<OrderResponse | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const { clear } = useCart();
+
+    useEffect(() => {
+        clear();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     useEffect(() => {
         let isCancelled = false;
@@ -66,6 +73,12 @@ export default function OrderStatusPage() {
                 if (!isCancelled) {
                     setOrder(data);
                     setError(null);
+
+                    // Stop polling once the order reaches a terminal status —
+                    // nothing left to update.
+                    if (data.status === "Delivered") {
+                        clearInterval(intervalId);
+                    }
                 }
             } catch {
                 if (!isCancelled) {
@@ -149,23 +162,28 @@ export default function OrderStatusPage() {
                     {STATUS_STEPS.map((step, index) => {
                         const isComplete = index <= currentStepIndex;
                         const isCurrent = index === currentStepIndex && !isDelivered;
+                        const isUpcoming = index > currentStepIndex;
 
                         return (
                             <li key={step} className="flex items-start gap-4">
                                 <div className="flex flex-col items-center">
                                     <span
-                                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border font-mono text-xs ${isComplete
+                                        className={`relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full border font-mono text-xs ${isComplete
                                                 ? "border-[var(--basil)] bg-[var(--basil)] text-white"
                                                 : "border-[var(--line)] bg-[var(--surface)] text-[var(--ink-muted)]"
                                             }`}
                                     >
-                                        {isComplete ? "✓" : index + 1}
+                                        {isComplete && !isCurrent ? "✓" : index + 1}
+                                        {isCurrent && (
+                                            <span className="absolute inset-0 animate-spin rounded-full border-2 border-[var(--chili)] border-t-transparent" />
+                                        )}
+                                        {isUpcoming && (
+                                            <span className="pulse-dot absolute inset-0 rounded-full border border-dashed border-[var(--line)]" />
+                                        )}
                                     </span>
                                     {index < STATUS_STEPS.length - 1 && (
                                         <span
-                                            className={`mt-1 h-10 w-px ${index < currentStepIndex
-                                                    ? "bg-[var(--basil)]"
-                                                    : "bg-[var(--line)]"
+                                            className={`mt-1 h-10 w-px ${index < currentStepIndex ? "bg-[var(--basil)]" : "bg-[var(--line)]"
                                                 }`}
                                         />
                                     )}
@@ -181,9 +199,14 @@ export default function OrderStatusPage() {
                                         <div className="mt-1 flex items-center gap-2">
                                             <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-[var(--chili)]" />
                                             <span className="text-xs uppercase tracking-widest text-[var(--chili)]">
-                                                In progress
+                                                Updating automatically
                                             </span>
                                         </div>
+                                    )}
+                                    {isUpcoming && (
+                                        <p className="mt-1 text-xs text-[var(--ink-muted)]">
+                                            Waiting to start
+                                        </p>
                                     )}
                                 </div>
                             </li>

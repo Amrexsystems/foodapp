@@ -99,19 +99,24 @@ describe("computeStatus", () => {
         expect(computeStatus(order)).toBe("Order Received");
     });
 
-    it("advances to 'Preparing' after 15 seconds", () => {
-        const order: Order = { ...makeOrderInput(), id: "test-1", createdAt: Date.now() - 15_000 };
+    it("advances to 'Preparing' after 5 seconds", () => {
+        const order: Order = { ...makeOrderInput(), id: "test-1", createdAt: Date.now() - 5_000 };
         expect(computeStatus(order)).toBe("Preparing");
     });
 
-    it("advances to 'Out for Delivery' after 45 seconds", () => {
-        const order: Order = { ...makeOrderInput(), id: "test-2", createdAt: Date.now() - 45_000 };
+    it("advances to 'Out for Delivery' after 10 seconds", () => {
+        const order: Order = { ...makeOrderInput(), id: "test-2", createdAt: Date.now() - 10_000 };
         expect(computeStatus(order)).toBe("Out for Delivery");
     });
 
-    it("advances to 'Delivered' after 90 seconds", () => {
-        const order: Order = { ...makeOrderInput(), id: "test-3", createdAt: Date.now() - 90_000 };
+    it("advances to 'Delivered' after 15 seconds", () => {
+        const order: Order = { ...makeOrderInput(), id: "test-3", createdAt: Date.now() - 15_000 };
         expect(computeStatus(order)).toBe("Delivered");
+    });
+
+    it("does not advance a status early, at 4 seconds it is still 'Order Received'", () => {
+        const order: Order = { ...makeOrderInput(), id: "test-5", createdAt: Date.now() - 4_000 };
+        expect(computeStatus(order)).toBe("Order Received");
     });
 
     it("stays at 'Delivered' well past the 90 second mark", () => {

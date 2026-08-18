@@ -1,46 +1,62 @@
-# Ember Kitchen — Order Management
+## Architecture and design choices
 
-An Order Management feature for a food delivery app for RaftLabs: browse a menu, build a cart, check out with delivery details, and track an order's status in real time.
+**Next.js App Router, single project.** Front-end and back-end live in one
+repo using API routes, rather than a separate Express server. At this
+scope — three endpoints, one data model — a second server would add
+deployment and CORS overhead with no real benefit.
 
-Built as a senior full-stack developer assessment.
+**Supabase (Postgres) for storage.** Orders are naturally relational
+(one row per order), so a Postgres table fits better than a NoSQL
+document store here. The service role key is used server-side only,
+with Row Level Security enabled and no public policies, so the
+database can't be read or written directly from the browser.
 
-## Features
+**Cart state via React Context.** `CartProvider` wraps the app in the
+root layout so cart state (add, increment, decrement, subtotal) is
+available to the menu, header, and checkout without prop drilling or
+an external state library — appropriate for a cart's size and lifetime
+(cleared once an order is placed).
 
-- **Menu display** — food items with name, description, price, and image, filterable by category
-- **Order placement** — add items to a cart, adjust quantities, and check out with name, address, and phone
-- **Order status tracking** — a live status page (Order Received → Preparing → Out for Delivery → Delivered) that polls the API and advances automatically based on elapsed time, simulating real-time kitchen updates
-- **REST API** — endpoints for creating and retrieving orders, with input validation
-- **Tests** — unit and integration tests covering the order store, both API routes, cart logic, and the checkout form
+**Status derived from time, not stored.** `computeStatus()` calculates
+an order's status from elapsed time since `createdAt`, rather than
+writing status updates on a timer. This keeps the "real-time" behavior
+correct even if the server restarts or multiple people view the same
+order — the status is always recalculated fresh from a single
+timestamp, not dependent on a background job staying alive.
 
-## How order status updates work
+**Polling over WebSockets.** The order status page polls
+`GET /api/orders/[id]` every 3 seconds and stops once the order reaches
+"Delivered." Polling was chosen over WebSockets/SSE because the status
+changes are infrequent (a handful of times per order) and short-lived
+(the page isn't open for hours) — a persistent connection would add
+complexity without a meaningful benefit at this scale.
 
-Orders are stored in memory with a `createdAt` timestamp. `computeStatus()` derives the current status from elapsed time since creation (15s → Preparing, 45s → Out for Delivery, 90s → Delivered). The order status page polls `GET /api/orders/[id]` every 5 seconds, so the status advances automatically without a websocket or manual update.
+## Challenges faced
 
-## Notes on scope
+- **Serverless storage.** The first implementation used an in-memory
+  `Map`, which worked locally but failed on Vercel (`404` on freshly
+  created orders) because serverless functions don't share memory
+  between invocations. Fixed by moving storage to Supabase.
+- **Next.js 15 async route params.** Dynamic API route params
+  (`params.id`) became a `Promise` in this Next.js version, which
+  wasn't caught until testing on the deployed app. Fixed by awaiting
+  `params` before use, in both the route and its tests.
+- **Cart clearing too early.** Clearing the cart immediately on
+  checkout submit caused a one-frame flash of the "empty cart" state
+  before the redirect completed. Fixed by moving `clear()` to run once
+  the order status page mounts, instead of during checkout submission.
+- **Unbounded polling.** The status page kept polling every few seconds
+  even after an order was marked "Delivered," since the interval had no
+  exit condition. Fixed by clearing the interval once a terminal status
+  is reached.
 
-- Orders are stored in memory and reset when the server restarts — acceptable for this assessment's scope, and explicitly allowed by the brief.
-- No authentication or multi-restaurant support — the feature is scoped to order management for a single menu, per the assessment brief.
+## Use of AI tools
 
-## Tech stack
-
-- [Next.js](https://nextjs.org) (App Router) + TypeScript
-- Tailwind CSS
-- [Vitest](https://vitest.dev) + React Testing Library
-- In-memory data store (no external database required)
-
-## Getting started
-
-```bash
-npm install
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000).
-
-## Running tests
-
-```bash
-npm test
-```
-
-## Project structure
+I built this project, with Claude used mainly for
+debugging support — working through errors like the serverless storage
+issue on Vercel, the Next.js async route params change, and the
+Supabase connection setup. It was also used as a sounding board for a
+few implementation decisions (e.g. polling vs. WebSockets for status
+updates) and to review test coverage before pushing. The core
+implementation, structure, and decisions on how to build each feature
+were mine.

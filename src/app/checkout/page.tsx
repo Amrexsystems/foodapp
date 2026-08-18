@@ -83,7 +83,6 @@ export default function Checkout() {
             }
 
             const data = await response.json();
-            clear();
             router.push(`/order/${data.id}`);
         } catch {
             setSubmitError(

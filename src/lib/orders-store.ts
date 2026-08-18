@@ -27,9 +27,9 @@ export type Order = {
 
 const STATUS_TIMELINE: { after: number; status: OrderStatus }[] = [
     { after: 0, status: "Order Received" },
-    { after: 15, status: "Preparing" },
-    { after: 45, status: "Out for Delivery" },
-    { after: 90, status: "Delivered" },
+    { after: 5, status: "Preparing" },
+    { after: 10, status: "Out for Delivery" },
+    { after: 15, status: "Delivered" },
 ];
 
 export function computeStatus(order: Order): OrderStatus {
