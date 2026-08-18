@@ -20,6 +20,7 @@ type CartContextValue = {
     addItem: (item: MenuItem) => void;
     increment: (id: string) => void;
     decrement: (id: string) => void;
+    removeItem: (id: string) => void;
     clear: () => void;
 };
 
@@ -54,6 +55,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
         );
     };
 
+    const removeItem = (id: string) => {
+        setLines((prev) => prev.filter((l) => l.id !== id));
+    };
+
     const clear = () => setLines([]);
 
     const itemCount = useMemo(
@@ -68,7 +73,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     return (
         <CartContext.Provider
-            value={{ lines, itemCount, subtotal, addItem, increment, decrement, clear }}
+            value={{
+                lines,
+                itemCount,
+                subtotal,
+                addItem,
+                increment,
+                decrement,
+                removeItem,
+                clear,
+            }}
         >
             {children}
         </CartContext.Provider>

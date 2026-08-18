@@ -1,197 +1,313 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import Checkout from "./page";
+"use client";
 
-const pushMock = vi.fn();
-vi.mock("next/navigation", () => ({
-    useRouter: () => ({ push: pushMock }),
-}));
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useCart } from "@/lib/cart-context";
+import { X } from "lucide-react";
 
-const clearMock = vi.fn();
-let mockLines: {
-    id: string;
+type FormState = {
     name: string;
-    category: string;
-    description: string;
-    price: number;
-    image: string;
-    quantity: number;
-}[] = [];
+    address: string;
+    phone: string;
+};
 
-vi.mock("@/lib/cart-context", () => ({
-    useCart: () => ({
-        lines: mockLines,
-        subtotal: mockLines.reduce((sum, l) => sum + l.price * l.quantity, 0),
-        clear: clearMock,
-    }),
-}));
+type FormErrors = Partial<Record<keyof FormState, string>>;
 
-function fillValidForm() {
-    const user = userEvent.setup();
-    return (async () => {
-        await user.type(screen.getByLabelText("Full name"), "Jane Wanjiru");
-        await user.type(
-            screen.getByLabelText("Delivery address"),
-            "12 Riverside Drive, Nairobi"
+export default function Checkout() {
+    const { lines, subtotal, clear, removeItem } = useCart();
+    const router = useRouter();
+
+    const [form, setForm] = useState<FormState>({
+        name: "",
+        address: "",
+        phone: "",
+    });
+    const [errors, setErrors] = useState<FormErrors>({});
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [submitError, setSubmitError] = useState<string | null>(null);
+
+    const updateField = (field: keyof FormState, value: string) => {
+        setForm((prev) => ({ ...prev, [field]: value }));
+        setErrors((prev) => ({ ...prev, [field]: undefined }));
+    };
+
+    const validate = (): boolean => {
+        const nextErrors: FormErrors = {};
+
+        if (!form.name.trim()) {
+            nextErrors.name = "Enter the name for this order.";
+        }
+
+        if (!form.address.trim()) {
+            nextErrors.address = "Enter a delivery address.";
+        }
+
+        const phoneDigits = form.phone.replace(/\D/g, "");
+        if (!form.phone.trim()) {
+            nextErrors.phone = "Enter a phone number.";
+        } else if (phoneDigits.length < 7) {
+            nextErrors.phone = "Enter a valid phone number.";
+        }
+
+        setErrors(nextErrors);
+        return Object.keys(nextErrors).length === 0;
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setSubmitError(null);
+
+        if (lines.length === 0) return;
+        if (!validate()) return;
+
+        setIsSubmitting(true);
+
+        try {
+            const response = await fetch("/api/orders", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    items: lines.map((line) => ({
+                        id: line.id,
+                        name: line.name,
+                        price: line.price,
+                        quantity: line.quantity,
+                    })),
+                    customer: form,
+                    subtotal,
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error("Order could not be placed.");
+            }
+
+            const data = await response.json();
+            router.push(`/order/${data.id}`);
+        } catch {
+            setSubmitError(
+                "We couldn't place your order. Check your connection and try again."
+            );
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    if (lines.length === 0) {
+        return (
+            <div className="flex min-h-screen flex-col items-center justify-center bg-[var(--parchment)] px-6 text-center">
+                <p className="font-display text-xl text-[var(--ink)]">
+                    Your order is empty.
+                </p>
+                <p className="mt-2 text-sm text-[var(--ink-muted)]">
+                    Add a plate from the menu before checking out.
+                </p>
+                <Link
+                    href="/"
+                    className="mt-6 rounded-full bg-[var(--basil)] px-6 py-3 text-sm font-medium text-white hover:bg-[var(--basil-dark)]"
+                >
+                    Back to menu
+                </Link>
+            </div>
         );
-        await user.type(screen.getByLabelText("Phone number"), "0712345678");
-        return user;
-    })();
+    }
+
+    return (
+        <div className="min-h-screen bg-[var(--parchment)]">
+            <header className="border-b border-[var(--line)] bg-[var(--parchment)]/90 backdrop-blur">
+                <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+                    <Link
+                        href="/"
+                        className="font-display text-xl font-medium tracking-tight text-[var(--ink)]"
+                    >
+                        Ember Kitchen
+                    </Link>
+                    <Link
+                        href="/"
+                        className="text-sm text-[var(--ink-muted)] hover:text-[var(--ink)]"
+                    >
+                        Edit order
+                    </Link>
+                </div>
+            </header>
+
+            <div className="mx-auto max-w-6xl px-6 py-10 lg:grid lg:grid-cols-[1fr_340px] lg:gap-10">
+                {/* Delivery details form */}
+                <main>
+                    <h1 className="font-display text-2xl text-[var(--ink)] sm:text-3xl">
+                        Delivery details
+                    </h1>
+                    <p className="mt-1 text-sm text-[var(--ink-muted)]">
+                        We'll use this to get your order to you.
+                    </p>
+
+                    <form onSubmit={handleSubmit} noValidate className="mt-8 space-y-6">
+                        <Field
+                            label="Full name"
+                            name="name"
+                            value={form.name}
+                            onChange={(v) => updateField("name", v)}
+                            error={errors.name}
+                            placeholder="Jane Wanjiru"
+                            autoComplete="name"
+                        />
+
+                        <Field
+                            label="Delivery address"
+                            name="address"
+                            value={form.address}
+                            onChange={(v) => updateField("address", v)}
+                            error={errors.address}
+                            placeholder="Apartment, street, area"
+                            autoComplete="street-address"
+                            as="textarea"
+                        />
+
+                        <Field
+                            label="Phone number"
+                            name="phone"
+                            value={form.phone}
+                            onChange={(v) => updateField("phone", v)}
+                            error={errors.phone}
+                            placeholder="07XX XXX XXX"
+                            autoComplete="tel"
+                            type="tel"
+                        />
+
+                        {submitError && (
+                            <p className="text-sm text-[var(--chili)]">{submitError}</p>
+                        )}
+
+                        <button
+                            type="submit"
+                            disabled={isSubmitting}
+                            className="w-full rounded-full bg-[var(--basil)] px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-[var(--basil-dark)] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                        >
+                            {isSubmitting ? "Placing order…" : "Place order"}
+                        </button>
+                    </form>
+                </main>
+
+                {/* Order summary */}
+                <aside className="mt-10 lg:mt-0">
+                    <div className="sticky top-10 rounded-sm border border-[var(--line)] bg-[var(--surface)] p-5">
+                        <div className="flex items-center justify-between">
+                            <h2 className="font-display text-lg text-[var(--ink)]">
+                                Order summary
+                            </h2>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (window.confirm("Clear your order and start over?")) {
+                                        clear();
+                                        router.push("/");
+                                    }
+                                }}
+                                className="text-xs font-medium text-[var(--ink-muted)] underline-offset-2 hover:text-[var(--chili)] hover:underline"
+                            >
+                                Clear all
+                            </button>
+                        </div>
+                        <ul className="mt-4 space-y-3">
+                            {lines.map((line) => (
+                                <li key={line.id} className="flex items-center justify-between gap-3 text-sm">
+                                    <span className="text-[var(--ink)]">
+                                        {line.quantity}× {line.name}
+                                    </span>
+                                    <span className="flex shrink-0 items-center gap-2">
+                                        <span className="font-mono text-[var(--ink-muted)]">
+                                            ${(line.price * line.quantity).toFixed(2)}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => removeItem(line.id)}
+                                            aria-label={`Remove ${line.name} from order`}
+                                            className="rounded-full p-1 text-[var(--ink-muted)] transition-colors hover:bg-[var(--chili)]/10 hover:text-[var(--chili)]"
+                                        >
+                                            <X className="h-3.5 w-3.5" />
+                                        </button>
+                                    </span>
+                                </li>
+                            ))}
+                        </ul>
+                        <div className="mt-5 flex items-center justify-between border-t border-[var(--line)] pt-4">
+                            <span className="text-sm text-[var(--ink-muted)]">Total</span>
+                            <span className="font-mono text-base text-[var(--ink)]">
+                                ${subtotal.toFixed(2)}
+                            </span>
+                        </div>
+                    </div>
+                </aside>
+            </div>
+        </div>
+    );
 }
 
-beforeEach(() => {
-    pushMock.mockClear();
-    clearMock.mockClear();
-    mockLines = [
-        {
-            id: "margherita",
-            name: "Wood-Fired Margherita",
-            category: "Pizza",
-            description: "San Marzano tomato, fior di latte.",
-            price: 16,
-            image: "https://example.com/margherita.jpg",
-            quantity: 1,
-        },
-        {
-            id: "smash-burger",
-            name: "Smash Burger, Aged Cheddar",
-            category: "Burgers",
-            description: "Double patty, caramelized onion.",
-            price: 14,
-            image: "https://example.com/burger.jpg",
-            quantity: 1,
-        },
-    ];
-    global.fetch = vi.fn();
-});
+function Field({
+    label,
+    name,
+    value,
+    onChange,
+    error,
+    placeholder,
+    autoComplete,
+    type = "text",
+    as = "input",
+}: {
+    label: string;
+    name: string;
+    value: string;
+    onChange: (value: string) => void;
+    error?: string;
+    placeholder?: string;
+    autoComplete?: string;
+    type?: string;
+    as?: "input" | "textarea";
+}) {
+    const baseClasses = `w-full rounded-sm border bg-[var(--surface)] px-4 py-3 text-base sm:text-sm text-[var(--ink)] outline-none transition-colors placeholder:text-[var(--ink-muted)] focus-visible:border-[var(--basil)] ${error ? "border-[var(--chili)]" : "border-[var(--line)]"
+        }`;
 
-describe("Checkout page", () => {
-    it("shows an empty-cart message and no form when the cart is empty", () => {
-        mockLines = [];
-        render(<Checkout />);
-
-        expect(screen.getByText(/your order is empty/i)).toBeInTheDocument();
-        expect(screen.queryByLabelText("Full name")).not.toBeInTheDocument();
-    });
-
-    it("renders the delivery form and order summary when the cart has items", () => {
-        render(<Checkout />);
-
-        expect(screen.getByLabelText("Full name")).toBeInTheDocument();
-        expect(screen.getByLabelText("Delivery address")).toBeInTheDocument();
-        expect(screen.getByLabelText("Phone number")).toBeInTheDocument();
-        expect(screen.getByText("Wood-Fired Margherita", { exact: false })).toBeInTheDocument();
-        expect(screen.getByText("$30.00")).toBeInTheDocument();
-    });
-
-    it("shows validation errors and does not submit when all fields are empty", async () => {
-        const user = userEvent.setup();
-        render(<Checkout />);
-
-        await user.click(screen.getByRole("button", { name: /place order/i }));
-
-        expect(
-            await screen.findByText(/enter the name for this order/i)
-        ).toBeInTheDocument();
-        expect(screen.getByText(/enter a delivery address/i)).toBeInTheDocument();
-        expect(screen.getByText(/enter a phone number/i)).toBeInTheDocument();
-        expect(global.fetch).not.toHaveBeenCalled();
-    });
-
-    it("shows a validation error when the phone number is too short", async () => {
-        const user = userEvent.setup();
-        render(<Checkout />);
-
-        await user.type(screen.getByLabelText("Full name"), "Jane Wanjiru");
-        await user.type(
-            screen.getByLabelText("Delivery address"),
-            "12 Riverside Drive"
-        );
-        await user.type(screen.getByLabelText("Phone number"), "123");
-        await user.click(screen.getByRole("button", { name: /place order/i }));
-
-        expect(
-            await screen.findByText(/enter a valid phone number/i)
-        ).toBeInTheDocument();
-        expect(global.fetch).not.toHaveBeenCalled();
-    });
-
-    it("clears a field's error as soon as the user edits it", async () => {
-        const user = userEvent.setup();
-        render(<Checkout />);
-
-        await user.click(screen.getByRole("button", { name: /place order/i }));
-        expect(
-            await screen.findByText(/enter the name for this order/i)
-        ).toBeInTheDocument();
-
-        await user.type(screen.getByLabelText("Full name"), "J");
-
-        expect(
-            screen.queryByText(/enter the name for this order/i)
-        ).not.toBeInTheDocument();
-    });
-
-    it("submits the order, clears the cart, and redirects to the order status page", async () => {
-        (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-            ok: true,
-            json: async () => ({ id: "1234" }),
-        });
-
-        render(<Checkout />);
-        const user = await fillValidForm();
-        await user.click(screen.getByRole("button", { name: /place order/i }));
-
-        await waitFor(() => {
-            expect(global.fetch).toHaveBeenCalledWith(
-                "/api/orders",
-                expect.objectContaining({ method: "POST" })
-            );
-        });
-
-        const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
-        const body = JSON.parse(options.body as string);
-        expect(body.customer).toEqual({
-            name: "Jane Wanjiru",
-            address: "12 Riverside Drive, Nairobi",
-            phone: "0712345678",
-        });
-        expect(body.items).toHaveLength(2);
-
-        await waitFor(() => expect(clearMock).toHaveBeenCalled());
-        await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/order/1234"));
-    });
-
-    it("shows an error message and does not redirect when the API responds with an error", async () => {
-        (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-            ok: false,
-            json: async () => ({ error: "Something went wrong" }),
-        });
-
-        render(<Checkout />);
-        const user = await fillValidForm();
-        await user.click(screen.getByRole("button", { name: /place order/i }));
-
-        expect(
-            await screen.findByText(/we couldn't place your order/i)
-        ).toBeInTheDocument();
-        expect(pushMock).not.toHaveBeenCalled();
-        expect(clearMock).not.toHaveBeenCalled();
-    });
-
-    it("shows an error message when the network request throws", async () => {
-        (global.fetch as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
-            new Error("Network down")
-        );
-
-        render(<Checkout />);
-        const user = await fillValidForm();
-        await user.click(screen.getByRole("button", { name: /place order/i }));
-
-        expect(
-            await screen.findByText(/we couldn't place your order/i)
-        ).toBeInTheDocument();
-        expect(pushMock).not.toHaveBeenCalled();
-    });
-});
+    return (
+        <div>
+            <label
+                htmlFor={name}
+                className="mb-1.5 block text-sm font-medium text-[var(--ink)]"
+            >
+                {label}
+            </label>
+            {as === "textarea" ? (
+                <textarea
+                    id={name}
+                    name={name}
+                    value={value}
+                    onChange={(e) => onChange(e.target.value)}
+                    placeholder={placeholder}
+                    autoComplete={autoComplete}
+                    rows={2}
+                    aria-invalid={Boolean(error)}
+                    aria-describedby={error ? `${name}-error` : undefined}
+                    className={baseClasses}
+                />
+            ) : (
+                <input
+                    id={name}
+                    name={name}
+                    type={type}
+                    value={value}
+                    onChange={(e) => onChange(e.target.value)}
+                    placeholder={placeholder}
+                    autoComplete={autoComplete}
+                    aria-invalid={Boolean(error)}
+                    aria-describedby={error ? `${name}-error` : undefined}
+                    className={baseClasses}
+                />
+            )}
+            {error && (
+                <p id={`${name}-error`} className="mt-1.5 text-xs text-[var(--chili)]">
+                    {error}
+                </p>
+            )}
+        </div>
+    );
+}

@@ -191,9 +191,23 @@ export default function Checkout() {
                 {/* Order summary */}
                 <aside className="mt-10 lg:mt-0">
                     <div className="sticky top-10 rounded-sm border border-[var(--line)] bg-[var(--surface)] p-5">
-                        <h2 className="font-display text-lg text-[var(--ink)]">
-                            Order summary
-                        </h2>
+                        <div className="flex items-center justify-between">
+                            <h2 className="font-display text-lg text-[var(--ink)]">
+                                Order summary
+                            </h2>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (window.confirm("Clear your order and start over?")) {
+                                        clear();
+                                        router.push("/");
+                                    }
+                                }}
+                                className="text-xs font-medium text-[var(--ink-muted)] underline-offset-2 hover:text-[var(--chili)] hover:underline"
+                            >
+                                Clear order
+                            </button>
+                        </div>
                         <ul className="mt-4 space-y-3">
                             {lines.map((line) => (
                                 <li key={line.id} className="flex justify-between gap-3 text-sm">
@@ -240,7 +254,7 @@ function Field({
     type?: string;
     as?: "input" | "textarea";
 }) {
-    const baseClasses = `w-full rounded-sm border bg-[var(--surface)] px-4 py-3 text-sm text-[var(--ink)] outline-none transition-colors placeholder:text-[var(--ink-muted)] focus-visible:border-[var(--basil)] ${error ? "border-[var(--chili)]" : "border-[var(--line)]"
+    const baseClasses = `w-full rounded-sm border bg-[var(--surface)] px-4 py-3 text-base sm:text-sm text-[var(--ink)] outline-none transition-colors placeholder:text-[var(--ink-muted)] focus-visible:border-[var(--basil)] ${error ? "border-[var(--chili)]" : "border-[var(--line)]"
         }`;
 
     return (

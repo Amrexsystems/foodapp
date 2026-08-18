@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useCart, type MenuItem } from "@/lib/cart-context";
+import { X } from "lucide-react";
 
 const menuItems: MenuItem[] = [
   {
@@ -64,7 +65,8 @@ const menuItems: MenuItem[] = [
 const categories = ["All", ...Array.from(new Set(menuItems.map((i) => i.category)))];
 
 export default function Home() {
-  const { lines, itemCount, subtotal, addItem, increment, decrement } = useCart();
+  const { lines, itemCount, subtotal, addItem, increment, decrement, removeItem } =
+    useCart();
   const [activeCategory, setActiveCategory] = useState("All");
   const [isCartOpen, setIsCartOpen] = useState(false);
 
@@ -107,8 +109,8 @@ export default function Home() {
                 onClick={() => setActiveCategory(category)}
                 aria-pressed={activeCategory === category}
                 className={`rounded-full border px-4 py-1.5 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--basil)] ${activeCategory === category
-                    ? "border-[var(--basil)] bg-[var(--basil)] text-white"
-                    : "border-[var(--line)] bg-[var(--surface)] text-[var(--ink-muted)] hover:border-[var(--basil)]"
+                  ? "border-[var(--basil)] bg-[var(--basil)] text-white"
+                  : "border-[var(--line)] bg-[var(--surface)] text-[var(--ink-muted)] hover:border-[var(--basil)]"
                   }`}
               >
                 {category}
@@ -191,6 +193,7 @@ export default function Home() {
               subtotal={subtotal}
               increment={increment}
               decrement={decrement}
+              removeItem={removeItem}
             />
           </div>
         </aside>
@@ -240,6 +243,7 @@ export default function Home() {
               subtotal={subtotal}
               increment={increment}
               decrement={decrement}
+              removeItem={removeItem}
               bare
             />
           </div>
@@ -254,12 +258,14 @@ function CartPanel({
   subtotal,
   increment,
   decrement,
+  removeItem,
   bare = false,
 }: {
   lines: ReturnType<typeof useCart>["lines"];
   subtotal: number;
   increment: (id: string) => void;
   decrement: (id: string) => void;
+  removeItem: (id: string) => void;
   bare?: boolean;
 }) {
   return (
@@ -292,25 +298,35 @@ function CartPanel({
                   ${line.price.toFixed(2)} each
                 </p>
               </div>
-              <div className="flex items-center gap-2 rounded-full border border-[var(--line)] px-2 py-1">
+              <div className="flex shrink-0 items-center gap-2">
+                <div className="flex items-center gap-2 rounded-full border border-[var(--line)] px-2 py-1">
+                  <button
+                    type="button"
+                    onClick={() => decrement(line.id)}
+                    aria-label={`Remove one ${line.name}`}
+                    className="flex h-5 w-5 items-center justify-center text-[var(--ink)]"
+                  >
+                    −
+                  </button>
+                  <span className="font-mono text-xs text-[var(--ink)]">
+                    {line.quantity}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => increment(line.id)}
+                    aria-label={`Add one more ${line.name}`}
+                    className="flex h-5 w-5 items-center justify-center text-[var(--ink)]"
+                  >
+                    +
+                  </button>
+                </div>
                 <button
                   type="button"
-                  onClick={() => decrement(line.id)}
-                  aria-label={`Remove one ${line.name}`}
-                  className="flex h-5 w-5 items-center justify-center text-[var(--ink)]"
+                  onClick={() => removeItem(line.id)}
+                  aria-label={`Remove ${line.name} from order`}
+                  className="flex h-6 w-6 items-center justify-center rounded-full text-[var(--ink-muted)] transition-colors hover:bg-[var(--chili)]/10 hover:text-[var(--chili)]"
                 >
-                  −
-                </button>
-                <span className="font-mono text-xs text-[var(--ink)]">
-                  {line.quantity}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => increment(line.id)}
-                  aria-label={`Add one more ${line.name}`}
-                  className="flex h-5 w-5 items-center justify-center text-[var(--ink)]"
-                >
-                  +
+                  <X className="h-3.5 w-3.5" />
                 </button>
               </div>
             </li>
@@ -329,8 +345,8 @@ function CartPanel({
         href="/checkout"
         aria-disabled={lines.length === 0}
         className={`mt-4 block w-full rounded-full px-5 py-3 text-center text-sm font-medium transition-colors ${lines.length === 0
-            ? "pointer-events-none bg-[var(--line)] text-[var(--ink-muted)]"
-            : "bg-[var(--basil)] text-white hover:bg-[var(--basil-dark)]"
+          ? "pointer-events-none bg-[var(--line)] text-[var(--ink-muted)]"
+          : "bg-[var(--basil)] text-white hover:bg-[var(--basil-dark)]"
           }`}
       >
         Proceed to checkout
